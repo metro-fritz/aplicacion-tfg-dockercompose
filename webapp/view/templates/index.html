@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reconocimiento de Keratitis Ocular (IVCM) — TFG</title>
+  <style>
+    /* ── Variables ────────────────────────────────────────── */
+    :root {
+      --bg:       #ffffff;
+      --panel:    #f2f2f2;
+      --panel2:   #e9e9e9;
+      --border:   #bcbcbc;
+      --border2:  #999999;
+      --text:     #1a1a1a;
+      --muted:    #5a5a5a;
+      --accent:   #1a4f8b;
+      --red:      #a02020;
+      --font:     Arial, Helvetica, sans-serif;
+    }
+
+    /* ── Reset ────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 15px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    /* ── Layout ───────────────────────────────────────────── */
+    .app { display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* ── Header ───────────────────────────────────────────── */
+    header {
+      border-bottom: 2px solid var(--border2);
+      padding: 14px 22px;
+      background: var(--panel);
+    }
+    .header-title {
+      font-size: 1.15rem;
+      font-weight: bold;
+      color: var(--text);
+      line-height: 1.35;
+    }
+
+    /* ── Main grid ────────────────────────────────────────── */
+    main {
+      display: grid;
+      grid-template-columns: 440px 1fr;
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* ── Left panel ───────────────────────────────────────── */
+    .panel-left {
+      border-right: 2px solid var(--border2);
+      background: var(--panel);
+      display: flex; flex-direction: column;
+      overflow-y: auto;
+    }
+    .panel-section {
+      padding: 22px 26px;
+      border-bottom: 1px solid var(--border);
+    }
+    .section-label {
+      font-size: 1.05rem;
+      font-weight: bold;
+      color: var(--text);
+      margin-bottom: 16px;
+    }
+
+    /* ── Model selector ───────────────────────────────────── */
+    .model-grid { display: grid; gap: 10px; }
+    .model-card {
+      border: 1px solid var(--border2);
+      padding: 12px 14px;
+      cursor: pointer;
+      background: var(--bg);
+    }
+    .model-card:hover { background: var(--panel2); }
+    .model-card.active {
+      border: 2px solid var(--accent);
+      background: #eef3f9;
+    }
+    .model-name {
+      font-weight: bold;
+      font-size: 1.05rem;
+      color: var(--text);
+      margin-bottom: 3px;
+    }
+    .model-card.active .model-name { color: var(--accent); }
+    .model-meta {
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .model-meta span { font-weight: bold; color: var(--text); }
+
+    /* ── Model info box ───────────────────────────────────── */
+    .model-info {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 12px 14px;
+      font-size: 0.95rem;
+      color: var(--muted);
+      line-height: 1.55;
+      min-height: 70px;
+    }
+
+    /* ── Drop zone ────────────────────────────────────────── */
+    .drop-zone {
+      border: 2px dashed var(--border2);
+      padding: 32px 16px;
+      text-align: center;
+      cursor: pointer;
+      background: var(--bg);
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: var(--panel2);
+    }
+    .drop-zone input { display: none; }
+    .drop-icon {
+      font-size: 2rem;
+      margin-bottom: 8px;
+      color: var(--muted);
+    }
+    .drop-text {
+      font-size: 0.98rem;
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .drop-text strong { color: var(--accent); }
+    .drop-formats {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+    .drop-preview {
+      width: 100%; aspect-ratio: 4/3;
+      object-fit: contain;
+      display: none;
+    }
+
+    /* ── Classify button ──────────────────────────────────── */
+    #btn-classify {
+      width: 100%;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 12px;
+      font-family: var(--font);
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    #btn-classify:hover { background: #16406f; }
+    #btn-classify:disabled {
+      background: var(--border);
+      color: var(--muted);
+      cursor: not-allowed;
+    }
+    .btn-spinner {
+      width: 14px; height: 14px;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Right panel ──────────────────────────────────────── */
+    .panel-right {
+      display: flex; flex-direction: column;
+      overflow-y: auto;
+    }
+
+    /* ── Empty state ──────────────────────────────────────── */
+    .empty-state {
+      flex: 1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: var(--muted);
+      text-align: center;
+      padding: 48px;
+    }
+    .empty-state p { font-size: 1rem; line-height: 1.7; }
+
+    /* ── Results ──────────────────────────────────────────── */
+    #results { display: none; flex-direction: column; }
+    .results-body { padding: 26px 30px; }
+    .chart-title {
+      font-size: 1.15rem;
+      font-weight: bold;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .results-model-tag {
+      font-size: 0.95rem;
+      color: var(--muted);
+      margin-bottom: 22px;
+    }
+
+    /* ── Ranked predictions ───────────────────────────────── */
+    .bar-row {
+      display: grid;
+      grid-template-columns: 48px 1fr 40% 90px;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .bar-rank {
+      font-size: 1.05rem;
+      font-weight: bold;
+      color: var(--muted);
+    }
+    .bar-label {
+      font-size: 1.15rem;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .bar-label.top { font-weight: bold; color: var(--accent); }
+    .bar-track {
+      height: 12px;
+      background: var(--panel2);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      background: var(--border2);
+      width: 0;
+      transition: width 0.5s ease;
+    }
+    .bar-row:first-child .bar-fill { background: var(--accent); }
+    .bar-prob {
+      font-size: 1.1rem;
+      color: var(--text);
+      text-align: right;
+    }
+    .bar-row:first-child .bar-prob { font-weight: bold; color: var(--accent); }
+
+    /* ── Error ────────────────────────────────────────────── */
+    #error-msg {
+      display: none;
+      background: #f7e0e0;
+      border: 1px solid var(--red);
+      color: var(--red);
+      padding: 10px 12px;
+      font-size: 0.95rem;
+      margin-top: 10px;
+    }
+
+    /* ── Responsive ───────────────────────────────────────── */
+    @media (max-width: 800px) {
+      main { grid-template-columns: 1fr; }
+      .panel-left { border-right: none; border-bottom: 2px solid var(--border2); }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="header-title">
+      Trabajo de fin de grado — Reconocimiento de Keratitis Ocular con imágenes
+      "In Vivo Confocal Microscopy" (IVCM) aplicando Redes Convolucionales 2D
+      y Vision Transformers
+    </div>
+  </header>
+
+  <main>
+
+    <!-- ── Left Panel ──────────────────────────────────────── -->
+    <aside class="panel-left">
+
+      <!-- Model selector -->
+      <div class="panel-section">
+        <div class="section-label">01 / Seleccionar modelo</div>
+        <div class="model-grid" id="model-grid">
+          {% for model_id, meta in models.items() %}
+          <div class="model-card {% if loop.first %}active{% endif %}"
+               data-model="{{ model_id }}"
+               data-desc="{{ meta.description }}">
+            <div class="model-name">{{ meta.name }}</div>
+            <div class="model-meta">
+              <span>params</span> {{ meta.params }}
+              &nbsp;·&nbsp;
+              <span>depth</span> {{ meta.depth }}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <div class="model-info" id="model-info" style="margin-top:12px;">
+          {{ models.values()|list|first|attr('description') }}
+        </div>
+      </div>
+
+      <!-- Upload -->
+      <div class="panel-section" style="flex:1;">
+        <div class="section-label">02 / Subir imagen</div>
+
+        <div class="drop-zone" id="drop-zone">
+          <input type="file" id="file-input" accept="image/*" />
+          <div id="drop-placeholder">
+            <div class="drop-icon">⊞</div>
+            <div class="drop-text">
+              <strong>Arrastra una imagen</strong><br>
+              o haz clic para seleccionar
+            </div>
+            <div class="drop-formats">PNG · JPG · JPEG</div>
+          </div>
+          <img id="drop-preview" class="drop-preview" alt="preview" />
+        </div>
+
+        <div id="error-msg"></div>
+      </div>
+
+      <!-- Classify button -->
+      <div class="panel-section">
+        <button id="btn-classify" disabled>
+          <div class="btn-spinner" id="btn-spinner"></div>
+          <span id="btn-text">CLASIFICAR IMAGEN</span>
+        </button>
+      </div>
+
+    </aside>
+
+    <!-- ── Right Panel ─────────────────────────────────────── -->
+    <section class="panel-right">
+
+      <!-- Empty state -->
+      <div class="empty-state" id="empty-state">
+        <p>Selecciona un modelo y sube una imagen<br>para iniciar la clasificación.</p>
+      </div>
+
+      <!-- Results -->
+      <div id="results">
+        <div class="results-body">
+          <div class="chart-title">Predicciones</div>
+          <div class="results-model-tag">Modelo: <span id="res-model-tag">—</span></div>
+          <div id="bar-chart"></div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+</div>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
